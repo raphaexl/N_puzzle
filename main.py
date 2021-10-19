@@ -1,104 +1,270 @@
+#!/usr/bin/env python3
+from os import PRIO_PGRP
+import sys
+import re
 
-
+#Node or Cell or State 
 class Node:
-    def __init__(self, data, level, fval):
-        """Init node with the data, level of the node and calculate the heuristic fvalue"""
-        self.data = data
-        self.level = level
-        self.fval = fval
-    
+    def __init__(self, size, puzzle, g = 0, fcost = 0):
+        """ Init node with the data, level of the node and calculate the heuristic fcost """
+        self.size = size
+        self.data = puzzle
+        self.level = g
+        self.fcost = fcost
+        #self.h = heuristics()
+
     def generate_child(self):
-        """Generate child nodes from a given node by moving the blank space either in 4 dir {Up, down, right, left} """
-        x, y = self.find(self, self.data, '_')
-        val_list = [[x, y - 1], [x, y + 1], [x - 1, y], [x + 1, y]]
+        """ Generate child nodes from a given node by moving the blank space either in 4 dir {Up, down, right, left} """
+        x, y = self.find(self.data, 0) #find the position of 0
+        allowed_moves = [[x, y + 1], [x, y - 1], [x + 1, y], [x - 1, y]]
         children = []
-        for i in val_list:
+        print(x, y, self.data)
+        for i in allowed_moves:
             child = self.shuffle(self.data, x, y, i[0], i[1])
             if child is not None:
-                child_node = Node(child, self.level + 1, 0)
+                print('called for ', child)
+                child_node = Node(self.size, child, self.level + 1, 0)
                 children.append(child_node)
+        #sys.exit(0)
         return children
-
-    def shuffle(self, puz, x1, y1, x2, y2):
-        if (x2 >= 0 and x2 < len(self.data) and y2 >= 0 and y2 < len(self.data)):
-            temp_puz = []
-            temp_puz = self.copy(puz)
-            temp = temp_puz[x2][y2]
-            temp_puz[x2][y2] = temp_puz[x1][y1]
-            temp_puz[x1][y1] = temp
-            return temp_puz
-        else:
-            return None
     
+    def shuffle(self, puzz, x1, y1, x2, y2):
+        if (x2 >= 0 and x2 < self.size) and (y2 >= 0 and y2 < self.size):
+            temp_puz = []
+            temp_puz = self.copy(puzz)
+            temp = temp_puz[x1 + y1 * self.size]
+            temp_puz[x1 + y1 * self.size] = temp_puz[x2 + y2 * self.size]
+            temp_puz[x2 + y2 * self.size] = temp
+            return temp_puz
+        return None
+
     def copy(self, root):
         temp = []
         for i in root:
-            t = []
-            for j in i:
-                t.append(j)
-            temp.append(t)
+            temp.append(i)
         return temp
     
     def find(self, puz, x):
-        for i in range(0, len(self.data)):
-            for j in range(0, len(self.data)):
-                if puz[i][j] == x:
-                    return i, j
-    
-class Puzzle:
-    def __init__(self, size):
-        self.n = size
-        self.open = []
-        self.closed = []
+        for index in range(0, len(self.data)):
+            if puz[index] == x:
+                return  index % self.size, index // self.size
+        return None
 
+    def h_manathan(self):
+        print('This is h-score with manathan distance')
+        pass
+    def h_misplaced(self):
+        print('This h-score as the number of misplaced tiles by comparing the current state and the goal state or summation of the Manhattan distance between misplaced nodes.')
+        pass
+    def h_manathan(self):
+        print('This is h-score with euclidean-distance')
+        pass
+
+    def heuristic(self):
+        pass
+
+class Puzzle:
+    def __init__(self, size, start, goal):
+ #   def __init__(self, size):
+
+        self.n = size
+        self.start = start
+        self.goal = goal
+        self.open_list = []
+        self.closed_list = []
+
+    def __str__(self):
+        return f'Puzzle{self.data}'
+
+    def __repr__(self):
+        return f'Puzzle(name={self.data})'
+    
     def accept(self):
         puz = []
         for i in range(0, self.n):
             temp = input().split(' ')
-            puz.append(temp)
+            puz += [ int(x) for x in temp ]
         return puz
-    
-    def f(self, start, goal):
-        return self.h(start.data, goal) + start.level
-    
+
     def h(self, start, goal):
+        """misplaced tiles heuristic"""
         temp = 0
-        for i in range(0, self.n):
-            for j in range(0, self.n):
-                if start[i][j] != goal and start[i][j] != '_':
-                    temp += 1
+        #for i in range(0, len(start)):
+        for i in range(0, self.n * self.n):
+            if start[i] != goal[i] and start[i] != 0:
+                temp += 1
         return temp
 
-    def process(self):
-        print("Enter the start state matrix")
-        start = self.accept()
-        print("Enter the goal state matrix")
-        goal = self.accept()
+    def f(self, currNode, goal):
+        """ This is the cost function f(x) = g(x) + h(x) """
+        return currNode.level + self.h(currNode.data, goal)  #level or g
 
-        start = Node(start, 0, 0)
-        start.fval = self.f(start, goal)
-        self.open.append(start) #put the start node in the open list
+    def print_separator(self, currentNode):
+        print('')
+        print('   |  ')
+        print('   |  ')
+        print("  \\\'/   ")
+        for i, val in enumerate(currentNode.data):
+            print(val, end=' ')
+            if i == self.n - 1:
+                print('')
+            elif i > self.n:
+                nextIndex = i + 1
+                if nextIndex % (self.n) == 0:
+                    print('')
+
+    def solve(self):
+        # print("Enter the start state matrix")
+        # self.start = self.accept()
+        # print("Enter the goal state matrix")
+        # self.goal = self.accept()
+
+        # self.start = [1, 2, 3,0, 4, 6,7, 5, 8]
+        # self.goal = [1, 2, 3,4, 5, 6,7, 8, 0]
+        """The actual algorithm"""
+        start = Node(self.n, self.start, 0, 0)
+        start.fcost = self.f(start, goal=self.goal)
+        self.open_list.append(start) #add the start node to the open list
         print('\n\n')
         while True:
-            curr = self.open[0]
-            print('')
-            print('   |  ')
-            print('   |  ')
-            print("  \\\'/   ")
-            for i in curr.data:
-                for j in i:
-                    print(j, end=' ')
-                print('')
-            if self.h(curr.data, goal):
+            currenNode = self.open_list[0] #pop the first element from the open list queue
+            self.print_separator(currenNode)
+            if  self.h(currenNode.data, self.goal) == 0: #break if we found the solution
                 break
-            for i in curr.generate_child():
-                i.fval = self.f(i, goal)
-                self.open.append(i)
-            self.closed.append(curr)
-            del self.open[0]
-            #sort the open list based on the heuristic f value
-            self.open.sort(key = lambda x: x.fval , reversed = False)
+            for i in currenNode.generate_child():
+                # print('start', i.data)
+                # print('goal', self.goal)
+                i.fcost = self.f(i, goal=self.goal)
+                self.open_list.append(i)
+            self.closed_list.append(currenNode) #already explored mark it as visited by puting it inside close list
+            # sys.exit()
+            del self.open_list[0]
+            self.open_list.sort(key=lambda x: x.fcost, reverse=False)
 
+class PuzzleParser:
+    def __init__(self, fileName):
+        self.size, self.start_state = self.parsePuzzle(fileName)
+        self.goal_state = self.computeGoalState()
+
+    def parsePuzzle(self, fileName):
+        lines = []
+        with open(fileName) as f:
+            lines = f.readlines()
+        count = 0
+        size = 0
+        data = []
+        for line in lines:
+            s = line.strip()
+            if (not s or s[0] == '#'):#may be only #
+                continue
+            s = s[:s.index('#')] if '#' in s and s.index('#') else s
+            if not re.match("^ *[0-9][0-9 ]*$", s):
+                print('Error not allowed characters, line: ' +line, end='')
+                sys.exit(0)
+            else:                
+                if (size == 0 and len(s) == 1):
+                    if (count == 0):
+                        size = int(s)
+                        continue
+                    else:
+                        print('Error the size not must be first specified be fore anything')
+                        sys.exit(0)
+                s_list = s.split()
+                if (len(s_list) != size):
+                    print('Error a line that has not the specified size, line: ', line, end='')
+                    sys.exit(0)
+                i_list = [int(x) for x in s_list]
+                for x in i_list:
+                    if x < 0 or x >= size * size:
+                        print('Error a number not in the range of the allowed numbers, line: ', line, end='')
+                        sys.exit(0)  
+                data += i_list
+                count += 1
+        if (count != size):
+            print('There is a mismatch between the specified size and the provided map size')
+            sys.exit(0)
+        print('Parsing done successfully :-) ')
+        print('data', data)
+        return size, data
+    
+
+
+    def computeGoalState(self):
+        print('size ',self.size)
+        m = self.size
+        n = self.size
+
+        arr = [[None]*n for _ in range(m)]
+        k = 0; l = 0
+  
+        ''' k - starting row index 
+            m - ending row index 
+            l - starting column index 
+            n - ending column index 
+            i - iterator '''
+
+        currNumber = 0
+        while (k < m and l < n) : 
+            
+            # Compute the first row from 
+            # the remaining rows  
+            for i in range(l, n) : 
+                currNumber += 1
+                arr[k][i] = currNumber
+            k += 1
+    
+            # Compute the last column from 
+            # the remaining columns  
+            for i in range(k, m) : 
+                # print(a[i][n - 1], end = " ") 
+                currNumber += 1
+                arr[i][n - 1] = currNumber
+            n -= 1
+            # Compute the last row from 
+            # the remaining rows  
+            if ( k < m) : 
+                
+                for i in range(n - 1, (l - 1), -1) : 
+                    # print(a[m - 1][i], end = " ") 
+                    currNumber += 1
+                    arr[m - 1][i] = currNumber
+                m -= 1
+            # Compute the first column from 
+            # the remaining columns  
+            if (l < n) : 
+                for i in range(m - 1, k - 1, -1) : 
+                    currNumber += 1
+                    arr[i][l] = currNumber
+                l += 1
+        
+        state = [j for sub in arr for j in sub]
+        state[state.index(self.size * self.size)] = 0
+        print('\n target state ', state)
+        print(' => arr', arr)
+        return state
+
+
+    def get_start_state(self):
+        return self.start_state
+
+    def get_goal_state(self):
+        return self.goal_state
+    
+    def get_size(self):
+        return self.size
+
+
+def main(argv):
+    if (len(argv) != 1):
+        print('Usage: ./n-puzzle  npuzzle-start-state.txt')
+        sys.exit(0)
+    puzzleParser = PuzzleParser(argv[0])
+    puz = Puzzle(puzzleParser.size, puzzleParser.get_start_state(), puzzleParser.get_goal_state())
+    puz.solve()
+    sys.exit(0)
+
+ 
 if __name__ == "__main__":
-    puz = Puzzle(3)
-    puz.process()
+    main(sys.argv[1:])
+else:
+    print ("Executed when imported")
