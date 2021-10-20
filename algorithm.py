@@ -78,7 +78,7 @@ class Puzzle:
         # print("Enter the goal state matrix")
         # goal = self.accept()
         start = [['1', '2', '3'],['_', '4', '6'],['7', '5', '8']]
-        goal = [['1', '2', '3'],['4', '5', '6'],['7', '8', '_']]
+        goal = [['1', '2', '3'],['8', '_', '4'],['7', '6', '5']]
         start = Node(start, 0, 0)
         start.fval = self.f(start, goal)
         self.open.append(start) #put the start node in the open list

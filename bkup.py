@@ -2,36 +2,11 @@
 from os import PRIO_PGRP
 import sys
 import re
-from heapq import heappop, heappush
 
 #Node or Cell or State 
-# A class for Priority Queue
-class priorityQueue:
-     
-    # Constructor to initialize a
-    # Priority Queue
-    def __init__(self):
-        self.heap = []
- 
-    # Inserts a new key 'k'
-    def push(self, k):
-        heappush(self.heap, k)
- 
-    # Method to remove minimum element
-    # from Priority Queue
-    def pop(self):
-        return heappop(self.heap)
- 
-    # Method to know if the Queue is empty
-    def empty(self):
-        if not self.heap:
-            return True
-        else:
-            return False
 class Node:
-    def __init__(self, parent, size, puzzle, g = 0, fcost = 0):
+    def __init__(self, size, puzzle, g = 0, fcost = 0):
         """ Init node with the data, level of the node and calculate the heuristic fcost """
-        self.parent = parent
         self.size = size
         self.data = puzzle
         self.level = g
@@ -47,7 +22,7 @@ class Node:
         for i in allowed_moves:
             child = self.shuffle(self.data, x, y, i[0], i[1])
             if child is not None:
-                child_node = Node(self, self.size, child, self.level + 1, 0)
+                child_node = Node(self.size, child, self.level + 1, 0)
                 children.append(child_node)
         #sys.exit(0)
         return children
@@ -63,14 +38,12 @@ class Node:
         return None
 
     def copy(self, root):
-        return root[:]
-
+        temp = []
+        for i in root:
+            temp.append(i)
+        return temp
     
     def find(self, puz, x):
-        index = puz.index(x)
-        if index >= 0:
-            return index % self.size, index // self.size
-        return None
         for index in range(0, len(self.data)):
             if puz[index] == x:
                 return  index % self.size, index // self.size
@@ -89,29 +62,13 @@ class Node:
     def heuristic(self):
         pass
 
-    def h(self, goal):
-        """misplaced tiles heuristic"""
-        temp = 0
-        N = self.size
-        #for i in range(0, len(start)):
-        for i in range(0, N * N):
-            if self.data[i] != goal[i]:
-                temp += 1
-        return temp
-
-    def __eq__(self,other):
-        return self and other and self.fcost == other.fcost
-    
-    def __lt__(self, other):
-        return self and other and  self.fcost <= other.fcost
-
 class Puzzle:
     def __init__(self, size, start, goal):
         self.n = size
         self.start = start
         self.goal = goal
         self.open_list = []
-        self.closed_list = set()
+        self.closed_list = []
 
     def __str__(self):
         return f'Puzzle{self.data}'
@@ -126,14 +83,24 @@ class Puzzle:
             puz += [ int(x) for x in temp ]
         return puz
 
-
+    def h(self, start, goal):
+        """misplaced tiles heuristic"""
+        temp = 0
+        #for i in range(0, len(start)):
+        for i in range(0, self.n * self.n):
+            if start[i] != goal[i] and start[i] != 0:
+                temp += 1
+        return temp
 
     def f(self, currNode, goal):
         """ This is the cost function f(x) = g(x) + h(x) """
-        return currNode.level + currNode.h(goal)  #level or g
+        return currNode.level + self.h(currNode.data, goal)  #level or g
 
     def print_separator(self, currentNode):
-        print('- ' * self.n)
+        print('')
+        print('   |  ')
+        print('   |  ')
+        print("  \\\'/   ")
         for i, val in enumerate(currentNode.data):
             print(val, end=' ')
             if i == self.n - 1:
@@ -142,33 +109,6 @@ class Puzzle:
                 nextIndex = i + 1
                 if nextIndex % (self.n) == 0:
                     print('')
-
-    def solve_2(self):
-        #setattr(ListNode, "__lt__", lambda self, other: self.val <= other.val)
-        startNode = Node(None, self.n, self.start, 0, 0)
-        startNode.fcost = self.f(startNode, self.goal)
-        goalNode = Node(None, self.n, self.goal, 0, 0)
-        opened = []
-        closed = []
-        heappush(opened, startNode)
-        while opened:
-            process = heappop(opened)
-            self.print_separator(process)
-            if (process.data == goalNode.data):
-                break
-            closed.append(process)
-            for node in process.generate_child():
-                if node in closed:
-                    continue
-                if not node in opened:
-                    opened.append(node)
-                else:
-                    currentNode = (x for x in opened if x == node)
-                    if node.level < currenNode.level:
-                        currentNode.level = node.level
-                        currentNode.fcost = node.fcost
-                       # currentNode.parent = node.parent
-        print('Not possible to reach goal')
 
     def solve(self):
         # print("Enter the start state matrix")
@@ -179,33 +119,24 @@ class Puzzle:
         # self.start = [1, 2, 3,0, 4, 6,7, 5, 8]
         # self.goal = [1, 2, 3,4, 5, 6,7, 8, 0]
         """The actual algorithm"""
-        start = Node(None, self.n, self.start, 0, 0)
-        start.fcost = self.f(start, goal=self.goal) #same as h cause g is zero at start
-        heappush(self.open_list, start) #add the start node to the open list
-        while self.open_list:
-            currentNode = heappop(self.open_list) #pop the first element from the open list queue
-            # self.print_separator(currentNode)
-            if  currentNode.h(self.goal) == 0: #break if we found the solution
-                print('See the solution below')
-                self.print_path(currentNode)
-                return
-            for i in currentNode.generate_child():
+        start = Node(self.n, self.start, 0, 0)
+        start.fcost = self.f(start, goal=self.goal)
+        self.open_list.append(start) #add the start node to the open list
+        print('\n\n')
+        while True:
+            currenNode = self.open_list[0] #pop the first element from the open list queue
+            self.print_separator(currenNode)
+            if  self.h(currenNode.data, self.goal) == 0: #break if we found the solution
+                break
+            for i in currenNode.generate_child():
                 # print('start', i.data)
                 # print('goal', self.goal)
                 i.fcost = self.f(i, goal=self.goal)
-                if (str(i.data) not in self.closed_list):
-                    heappush(self.open_list, i)
-            self.closed_list.add(str(currentNode)) #already explored mark it as visited by puting it inside close list
+                self.open_list.append(i)
+            self.closed_list.append(currenNode) #already explored mark it as visited by puting it inside close list
             # sys.exit()
-            # del self.open_list[0]
-            # self.open_list.sort(key=lambda x: x.fcost, reverse=False)
-        print('Error : No path found !')
-    def print_path(self, root):
-        if root == None:
-            return
-        self.print_path(root.parent)
-        self.print_separator(root)
-        print()
+            del self.open_list[0]
+            self.open_list.sort(key=lambda x: x.fcost, reverse=False)
 
 class PuzzleParser:
     def __init__(self, fileName):
@@ -228,7 +159,7 @@ class PuzzleParser:
                 print('Error not allowed characters, line: ' +line, end='')
                 sys.exit(0)
             else:                
-                if (size == 0 and s.isnumeric()):
+                if (size == 0 and len(s) == 1):
                     if (count == 0):
                         size = int(s)
                         continue
@@ -323,29 +254,24 @@ class PuzzleParser:
     def get_inversion_count(self, arr):
         inv_count = 0
         N = self.size
-        # grid = arr.copy()
-        # grid.remove(0)
-        # for i in range(1, len(grid)):
-        #     for j in range(i - 1, 0, -1):
-        #         if (grid[j] <= grid[j + 1]):
-        #             break
-        #         grid[j + 1], grid[j] = grid[j], grid[j + 1]
-        #         inv_count += 1
-        # return inv_count
-        for i in range(N * N - 1):
-            for j in range(i + 1, N * N):
-                if arr[j] and arr[i] and arr[i] > arr[j]:
-                    inv_count += 1
+        grid = arr.copy()
+        grid.remove(0)
+        for i in range(1, len(grid)):
+            for j in range(i - 1, 0, -1):
+                if (grid[j] <= grid[j + 1]):
+                    break
+                grid[j + 1], grid[j] = grid[j], grid[j + 1]
+                inv_count += 1
         return inv_count
     
     def find_blank_position(self, puzzle):
         N = self.size
-        for i in range(N - 1, -1, -1):
-            for j in range(N - 1, -1, -1):
+        blank_row = (len(puzzle) - 1 - puzzle.index(0)) // N
+        return blank_row
+        for i in range(N - 1, 0, -1):
+            for j in range(N - 1, 0, -1):
                 if (puzzle[i * N + j] == 0):
                     return N - i
-        print('What ??? N = ', N)
-        print('(3, 0)', puzzle[3 * N + 0])
         return -1
 
     def parity(self, puzzle):
@@ -356,12 +282,13 @@ class PuzzleParser:
             return (inv_count & 1)
         else:
             pos = self.find_blank_position(puzzle)
-            print(f"inversion count: {inv_count} position from bottom : {pos}")
-            # return (inv_count + pos) & 1
+            print(f"inversion count {inv_count} blank row positon: {pos}")
+
+            return (inv_count + pos) & 1
             if (pos & 1):
-                return not (inv_count & 1)
+                return (inv_count & 1)
             else:
-                return inv_count & 1
+                return not inv_count & 1
     # def check_parity(self, puzzle):
 
         
@@ -393,11 +320,13 @@ class PuzzleParser:
         puzzle = self.start_state
         startParity = self.parity(puzzle)
         print('Start state is pair ? ' + 'Yes' if startParity else 'No')
-        puzzle = self.goal_state
-        goalParity = self.parity(puzzle)
-        print('Goal state is pair ? ' + 'Yes' if goalParity else 'No')
-        print('Goal is ',puzzle)
-        return startParity and goalParity
+        return False
+        # puzzle = self.goal_state
+        # goalParity = self.parity(puzzle)
+        # print('')
+        # print('Goal state is pair ? ' + 'Yes' if goalParity else 'No')
+        # print('Goal is ',puzzle)
+        # return startParity == goalParity
 
 
 def main(argv):
@@ -408,9 +337,8 @@ def main(argv):
     if not puzzleParser.solvable():
         print('Sorry the puzzle provided is not solvable :-(')
         sys.exit(0)
-    print('The puzzle is solvable')
-    puz = Puzzle(puzzleParser.size, puzzleParser.get_start_state(), puzzleParser.get_goal_state())
-    puz.solve()
+    # puz = Puzzle(puzzleParser.size, puzzleParser.get_start_state(), puzzleParser.get_goal_state())
+    # puz.solve()
     sys.exit(0)
 
  
