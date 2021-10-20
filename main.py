@@ -3,6 +3,7 @@ from os import PRIO_PGRP
 import sys
 import re
 from heapq import heappop, heappush
+from math import sqrt
 
 #Node or Cell or State 
 # A class for Priority Queue
@@ -76,21 +77,49 @@ class Node:
                 return  index % self.size, index // self.size
         return None
 
-    def h_manathan(self):
-        print('This is h-score with manathan distance')
-        pass
-    def h_misplaced(self):
-        print('This h-score as the number of misplaced tiles by comparing the current state and the goal state or summation of the Manhattan distance between misplaced nodes.')
-        pass
-    def h_manathan(self):
-        print('This is h-score with euclidean-distance')
-        pass
+    def h_manathan(self, goal):
+        """Manhattan Distance/Taxicab geometry"""
+        distance = 0
+        N = self.size
+        #for i in range(0, len(start)):
+        for index in range(0, N * N):
+            if self.data[index] and self.data[index] != goal[index]:
+                x, y = index % N, index // N
+                distance += sqrt(x * x + y * y)
+        return distance
+
+    def h_misplaced(self, goal):
+        """Hamming Distance/Misplaced Tiles"""
+        distance = 0
+        N = self.size
+        #for i in range(0, len(start)):
+        for i in range(0, N * N):
+            if self.data[i] and self.data[i] != goal[i]:
+                distance += 1
+        return distance
+        
+    def h_linear_conflict(self, goal):
+        """Linear Conflict + Manhattan Distance/Taxicab geometry"""
+        distance = 0
+        conflicts = 0
+        N = self.size
+        #for i in range(0, len(start)):
+        for index in range(0, N * N):
+            if self.data[index] and self.data[index] != goal[index]:
+                x, y = index % N, index // N
+                distance += sqrt(x * x + y * y)
+                a = self.data[index]
+                b = goal[index]
+                x1, y1 = self.data.index(b) % N, self.data.index(b) // N
+                x2, y2 = goal.index(a) % N, goal.index(a) // N
+                if (x == x1 or y == y1) and (x == x2 or y == y2):
+                    conflicts += 1
+        return distance + 2 * conflicts
 
     def heuristic(self):
         pass
 
     def h(self, goal):
-        """misplaced tiles heuristic"""
         temp = 0
         N = self.size
         #for i in range(0, len(start)):
