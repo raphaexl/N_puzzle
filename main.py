@@ -197,9 +197,9 @@ class Puzzle:
         start_time = time.time()
         while open_list:
             currentNode = heappop(open_list) #pop the first element from the open list queue
-            self.complexityInTime += 1
             if  currentNode.data == self.goal: #break if we found the solution
                 print("Solved      in      :  %s seconds" % (time.time() - start_time))
+                self.complexityInSize = len(closed_list)
                 self.display_solution(currentNode)
                 return
             for child in self.generate_child(currentNode.data):
@@ -207,9 +207,8 @@ class Puzzle:
                     fcost = self.fcost(currentNode, self.goal)
                     child_node = Node(currentNode,  child["data"], currentNode.level + 1, fcost, child['dir'])
                     heappush(open_list, child_node)
-                    self.complexityInSize += 1
+                    self.complexityInTime += 1
             closed_list.add(str(currentNode.data)) #already explored mark it as visited by puting it inside close list
-        print('Error : No path found !')
    
     def print_path(self, root):
         if root == None:
@@ -335,6 +334,7 @@ class PuzzleParser:
 
     def parity(self, puzzle):
         inv_count = self.get_inversion_count(puzzle)
+        print("inv_count = ", inv_count)
         N = self.size
         if (N & 1):
             return (inv_count & 1)
@@ -353,7 +353,7 @@ class PuzzleParser:
         puzzle = self.goal_state
         goalParity = self.parity(puzzle)
         print('Goal  state is ',puzzle)
-        return startParity and goalParity
+        return startParity == goalParity
 
 
 def main(fileName, heuristic, algorithm):
