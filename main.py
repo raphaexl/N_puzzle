@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from os import pread
 import sys
 import re
 from heapq import heappop, heappush
@@ -23,11 +22,12 @@ class Node:
         return 1 + self.parent.length()
 
 class Puzzle:
-    def __init__(self, size, start, goal, heuristic=0):
+    def __init__(self, size, start, goal, u_heuristic=1, u_algorithm = 1):
         self.n = size
         self.start = start
         self.goal = goal
-        self.h = self.setup_heuristic(heuristic)
+        self.h = self.setup_heuristic(u_heuristic)
+        self.fcost = self.setup_cost(u_algorithm)
         self.complexityInTime = 0
         self.complexityInSize = 0
         self.move_count = 0
@@ -91,14 +91,10 @@ class Puzzle:
                 distance += sqrt((x - g_x) * (x - g_x) + (y - g_y) * (y - g_y))
         return distance
 
-    def greedy(self, state, goal):
-        return 0
 
     def setup_heuristic(self, user_heuristic):
         """Choose the appropriate heuristic and calculate using it 3 is greedy 0"""
-        if (user_heuristic == 0):
-            return self.greedy
-        elif user_heuristic == 1:
+        if user_heuristic == 1:
             return self.h_manathan_distance
         elif user_heuristic == 2:
             return self.h_misplaced_tiles
@@ -106,7 +102,24 @@ class Puzzle:
             return  self.h_linear_conflict
         elif user_heuristic == 4:
             return self.h_euclidean_distance
-        return self.h_euclidean_distance
+        return self.h_manathan_distance
+
+    def astar_cost(self, state, goal):
+        return self.h(state.data, goal) + state.level
+
+    def greedy_cost(self, state, goal):
+        return self.h(state.data, goal)
+
+    def uniform_cost(self, state, goal):
+        return state.level
+    
+    def setup_cost(self, u_algoritm):
+        if u_algoritm == 2:
+            return self.greedy_cost
+        elif u_algoritm == 3:
+            return self.uniform_cost
+        else:
+            return self.astar_cost
     
     def generate_child(self, puzz):
         """ Generate child nodes from a given node by moving the blank space either in 4 dir {Up, down, right, left} """
@@ -114,19 +127,11 @@ class Puzzle:
         allowed_moves = [[x, y + 1], [x, y - 1], [x + 1, y], [x - 1, y]]
         children = []
         append = children.append
-        i = 0
-        while i < 4:
-            child = self.shuffle(puzz, x, y, allowed_moves[i][0], allowed_moves[i][1])
+        for i, move in enumerate(allowed_moves):
+            child = self.shuffle(puzz, x, y, move[0], move[1])
             if child is not None:
                 child_node = {"dir" : i, "data" : child}
                 append(child_node)
-            i += 1
-        return children
-        for i, move in enumerate(allowed_moves):
-            child = self.shuffle(node.data, x, y, move[0], move[1])
-            if child is not None:
-                child_node = {"dir" : i, "data" : child}
-                children.append(child_node)
         return children
     
     def shuffle(self, puzz, x1, y1, x2, y2):
@@ -144,9 +149,6 @@ class Puzzle:
         index = puz.index(x)
         N = self.n
         return index % N, index // N
-        if index >= 0:
-            return index % N, index // N
-        return None
 
     def print_separator(self, currentNode):
         s_str = ''
@@ -175,40 +177,35 @@ class Puzzle:
         print(s_str)
 
     def display_solution(self, endNode):
-        print('---Solution---')
         required_moves = endNode.length()
-        print('Complexity in time : ', (self.complexityInTime))
-        print('Complexity in size : ', self.complexityInSize)
-        print('Required moves : ' + str(required_moves))
+        print('Complexity  in time : ', (self.complexityInTime))
+        print('Complexity  in size : ', self.complexityInSize)
+        print('Required    moves   : ', required_moves)
         self.print_path(endNode)
 
     def solve(self):
-        #setattr(ListNode, "__lt__", lambda self, other: self.val <= other.val)
         if  self.start == self.goal: #break if we found the solution
             print('The Provided State is the Solution...')
-            self.print_path(Node(None, self.n, self.start))
+            self.print_path(Node(None, self.start))
             return 
         """The actual algorithm"""
         open_list = []
         closed_list = set()
         start = Node(None, self.start, 0, self.h(self.start, self.goal)) #same as f = h cause g is zero at start
         heappush(open_list, start) #add the start node to the open list
-        #closed_list.add(str(start.data))
         import time
         start_time = time.time()
         while open_list:
             currentNode = heappop(open_list) #pop the first element from the open list queue
             self.complexityInTime += 1
             if  currentNode.data == self.goal: #break if we found the solution
-                print("--- %s seconds ---" % (time.time() - start_time))
-                #self.display_solution(currentNode)
+                print("Solved      in      :  %s seconds" % (time.time() - start_time))
+                self.display_solution(currentNode)
                 return
             for child in self.generate_child(currentNode.data):
-                g = currentNode.level + 1
-                h = self.h(currentNode.data, self.goal)
-                fcost = g + h
                 if not (str(child["data"]) in closed_list):
-                    child_node = Node(currentNode,  child["data"], g, fcost, child['dir'])
+                    fcost = self.fcost(currentNode, self.goal)
+                    child_node = Node(currentNode,  child["data"], currentNode.level + 1, fcost, child['dir'])
                     heappush(open_list, child_node)
                     self.complexityInSize += 1
             closed_list.add(str(currentNode.data)) #already explored mark it as visited by puting it inside close list
@@ -279,7 +276,6 @@ class PuzzleParser:
         return size, data
     
     def computeGoalState(self):
-        print('size ',self.size)
         m = self.size
         n = self.size
         arr = [[None]*n for _ in range(m)]
@@ -353,20 +349,19 @@ class PuzzleParser:
     def solvable(self):
         puzzle = self.start_state
         startParity = self.parity(puzzle)
-        print('Start is ',puzzle)
+        print('Start state is ',puzzle)
         puzzle = self.goal_state
         goalParity = self.parity(puzzle)
-        print('Goal is ',puzzle)
+        print('Goal  state is ',puzzle)
         return startParity and goalParity
 
 
-def main(fileName, heuristic):
+def main(fileName, heuristic, algorithm):
     puzzleParser = PuzzleParser(fileName)        
     if not puzzleParser.solvable():
         print('Sorry the puzzle provided is not solvable :-(')
         sys.exit(0)
-    print('The puzzle is solvable')
-    puz = Puzzle(puzzleParser.size, puzzleParser.get_start_state(), puzzleParser.get_goal_state(), heuristic)
+    puz = Puzzle(puzzleParser.size, puzzleParser.get_start_state(), puzzleParser.get_goal_state(), heuristic, algorithm)
     puz.solve()
     sys.exit(0)
 
@@ -375,10 +370,11 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Solve a puzzle of N * N dimensions', formatter_class= argparse.RawTextHelpFormatter)
     parser.add_argument('-f', '--file', help='filename for the puzzle start state', dest="fileName", required=True)
-    h_help = '1 Manhattan Distance/Taxicab geometry as heuristic [default]\n'  + '2 Hamming Distance/Misplaced Tiles as heuristic\n'+'3 Linear Conflict + Manhattan Distance/Taxicab geometry as heuristic (Recommended)\n'+'4 Euclidian Distance as heuristic\n'+'0 Greedy search no heuristic'
+    parser.add_argument('-alg','--algorithm', help='1 A star alorigthm\n2 Greedy algorithm\n3 Uniform algorithm', type=int, default=1)
+    h_help = '1 Manhattan Distance/Taxicab geometry as heuristic [default]\n'  + '2 Hamming Distance/Misplaced Tiles as heuristic\n'+'3 Linear Conflict + Manhattan Distance/Taxicab geometry as heuristic (Recommended)\n'+'4 Euclidian Distance as heuristic\n'
     parser.add_argument('--heuristic', help=h_help, type=int, default=1)
     options = parser.parse_args()
-    if options.fileName and options.heuristic >=  0:
-        main(options.fileName, options.heuristic)
+    if options.fileName and options.heuristic >  0 and options.heuristic <  5 and options.algorithm > 0 and options.algorithm < 4:
+        main(options.fileName, options.heuristic, options.algorithm)
     else:
         print("Wrong parameters :-( check you arguments")
