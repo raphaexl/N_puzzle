@@ -1,167 +1,132 @@
 #!/usr/bin/env python3
+from os import pread
 import sys
 import re
 from heapq import heappop, heappush
 from math import  sqrt
 
-
-#Node or Cell or State 
-# A class for Priority Queue
-class priorityQueue:
-     
-    # Constructor to initialize a
-    # Priority Queue
-    def __init__(self):
-        self.heap = []
- 
-    # Inserts a new key 'k'
-    def push(self, k):
-        heappush(self.heap, k)
- 
-    # Method to remove minimum element
-    # from Priority Queue
-    def pop(self):
-        return heappop(self.heap)
- 
-    # Method to know if the Queue is empty
-    def empty(self):
-        if not self.heap:
-            return True
-        else:
-            return False
 class Node:
-    def __init__(self, parent, size, puzzle, g = 0, fcost = 0, selected_h = 1, move_dir = -1):
+    def __init__(self, parent, puzzle, g = 0, fcost = 0, move_dir = -1):
         """ Init node with the data, level of the node and calculate the heuristic fcost """
         self.parent = parent
-        self.size = size
         self.data = puzzle
         self.level = g
         self.fcost = fcost
         self.move = move_dir
-        self.heuristic = selected_h #self.setup_heuristic(selected_h)
 
-    def h_manathan_distance(self, goal):
-        """Manhattan Distance/Taxicab geometry"""
-        distance = 0
-        N = self.size
-        #for i in range(0, len(start)):
-        for index in range(0, N * N):
-            if self.data[index] and self.data[index] != goal[index]:
-                x, y = index % N, index // N
-                g_index = goal.index(self.data[index])
-                g_x, g_y = g_index % N, g_index // N
-                distance += abs(x - g_x) + abs(y - g_y)
-        return distance
-    
-
-    def h_misplaced_tiles(self, goal):
-        """Hamming Distance/Misplaced Tiles"""
-        distance = 0
-        N = self.size
-        #for i in range(0, len(start)):
-        for i in range(0, N * N):
-            if self.data[i] and self.data[i] != goal[i]:
-                distance += 1
-        return distance
-        
-    def h_linear_conflict(self, goal):
-        """Linear Conflict + Manhattan Distance/Taxicab geometry"""
-        distance = 0
-        conflicts = 0
-        N = self.size
-        #for i in range(0, len(start)):
-        for index in range(0, N * N):
-            if self.data[index] and self.data[index] != goal[index]:
-                x, y = index % N, index // N
-                distance += sqrt(x * x + y * y)
-                a = self.data[index]
-                b = goal[index]
-                x1, y1 = self.data.index(b) % N, self.data.index(b) // N
-                x2, y2 = goal.index(a) % N, goal.index(a) // N
-                if (x == x1 or y == y1) and (x == x2 or y == y2):
-                    conflicts += 1
-        return distance + 2 * conflicts
-
-    def h_euclidean_distance(self, goal):
-        """Euclidean"""
-        distance = 0
-        N = self.size
-        for index in range(0, N * N):
-            if self.data[index] and self.data[index] != goal[index]:
-                x, y = index % N, index // N
-                g_index = goal.index(self.data[index])
-                g_x, g_y = g_index % N, g_index // N
-                distance += sqrt((x - g_x) * (x - g_x) + (y - g_y) * (y - g_y))
-        return distance
-    
-    def greedy(seelf, goal):
-        return 0
-
-    def setup_heuristic(self, heuristic):
-        """Choose the appropriate heuristic and calculate using it 3 is greedy 0"""
-        if (heuristic == 0):
-            return self.greedy
-        elif heuristic == 1:
-            return self.h_manathan_distance
-        elif heuristic == 2:
-            return self.h_misplaced_tiles
-        elif heuristic == 3:
-            return  self.h_linear_conflict
-        elif heuristic == 4:
-            return self.h_euclidean_distance
-        print('Heiristic unspecified for this Node Euclidiane distance :-(')
-        return self.h_euclidean_distance
-
-    def h(self, goal):
-        """Choose the appropriate heuristic and calculate using it 3 is greedy 0"""
-        if (self.heuristic == 0):
-            return 0
-        elif self.heuristic == 1:
-            return self.h_manathan_distance(goal)
-        elif self.heuristic == 2:
-            return self.h_misplaced_tiles(goal)
-        elif self.heuristic == 3:
-            return  self.h_linear_conflict(goal)
-        elif self.heuristic == 4:
-            return self.h_euclidean_distance(goal)
-        return self.h_euclidean_distance(goal)
-
-    def __eq__(self,other):
-        #return self.fcost == other.fcost
-        return self and other and self.fcost == other.fcost
-    
     def __lt__(self, other):
-        #Some optimization for g and h is it necessary
-        return self.fcost < other.fcost
-        return self and other and  self.fcost <= other.fcost
+        return  self.fcost < other.fcost
+
+    def length(self):
+        if (self.parent == None):
+            return 0
+        return 1 + self.parent.length()
 
 class Puzzle:
     def __init__(self, size, start, goal, heuristic=0):
         self.n = size
         self.start = start
         self.goal = goal
-        self.open_list = []
-        self.closed_list = set()
-        self.heuristic = heuristic
+        self.h = self.setup_heuristic(heuristic)
+        self.complexityInTime = 0
+        self.complexityInSize = 0
+        self.move_count = 0
 
     def __str__(self):
         return f'Puzzle{self.data}'
 
     def __repr__(self):
         return f'Puzzle(name={self.data})'
+
+    def h_manathan_distance(self, state, goal):
+        """Manhattan Distance/Taxicab geometry"""
+        distance = 0
+        N = self.n
+        for index in range(0, N * N):
+            if state[index] and state[index] != goal[index]:
+                x, y = index % N, index // N
+                g_index = goal.index(state[index])
+                g_x, g_y = g_index % N, g_index // N
+                distance += abs(x - g_x) + abs(y - g_y)
+        return distance
     
-    def generate_child(self, node):
+
+    def h_misplaced_tiles(self, state, goal):
+        """Hamming Distance/Misplaced Tiles"""
+        distance = 0
+        N = self.n
+        for i in range(0, N * N):
+            if state[i] and state[i] != goal[i]:
+                distance += 1
+        return distance
+        
+    def h_linear_conflict(self, state, goal):
+        """Linear Conflict + Manhattan Distance/Taxicab geometry"""
+        distance = 0
+        conflicts = 0
+        N = self.n
+        for index in range(0, N * N):
+            if state[index] and state[index] != goal[index]:
+                x, y = index % N, index // N
+                g_index = goal.index(state[index])
+                g_x, g_y = g_index % N, g_index // N
+                distance += abs(x - g_x) + abs(y - g_y)
+                a = state[index]
+                b = goal[index]
+                x1, y1 = state.index(b) % N, state.index(b) // N
+                x2, y2 = goal.index(a) % N, goal.index(a) // N
+                if (x == x1 or y == y1) and (x == x2 or y == y2):
+                    conflicts += 1
+        return distance + 2 * conflicts
+
+    def h_euclidean_distance(self, state, goal):
+        """Euclidean"""
+        distance = 0
+        N = self.n
+        for index in range(0, N * N):
+            if state[index] and state[index] != goal[index]:
+                x, y = index % N, index // N
+                g_index = goal.index(state[index])
+                g_x, g_y = g_index % N, g_index // N
+                distance += sqrt((x - g_x) * (x - g_x) + (y - g_y) * (y - g_y))
+        return distance
+
+    def greedy(self, state, goal):
+        return 0
+
+    def setup_heuristic(self, user_heuristic):
+        """Choose the appropriate heuristic and calculate using it 3 is greedy 0"""
+        if (user_heuristic == 0):
+            return self.greedy
+        elif user_heuristic == 1:
+            return self.h_manathan_distance
+        elif user_heuristic == 2:
+            return self.h_misplaced_tiles
+        elif user_heuristic == 3:
+            return  self.h_linear_conflict
+        elif user_heuristic == 4:
+            return self.h_euclidean_distance
+        return self.h_euclidean_distance
+    
+    def generate_child(self, puzz):
         """ Generate child nodes from a given node by moving the blank space either in 4 dir {Up, down, right, left} """
-        x, y = self.find(node.data, 0) #find the position of 0
+        x, y = self.find(puzz, 0) #find the position of 0
         allowed_moves = [[x, y + 1], [x, y - 1], [x + 1, y], [x - 1, y]]
         children = []
-        # print(x, y, self.data)
+        append = children.append
+        i = 0
+        while i < 4:
+            child = self.shuffle(puzz, x, y, allowed_moves[i][0], allowed_moves[i][1])
+            if child is not None:
+                child_node = {"dir" : i, "data" : child}
+                append(child_node)
+            i += 1
+        return children
         for i, move in enumerate(allowed_moves):
             child = self.shuffle(node.data, x, y, move[0], move[1])
             if child is not None:
-                child_node = {"dir" : i, "data" : child} # Node(node, self.n, child, node.level + 1, 0, self.heuristic, i)
+                child_node = {"dir" : i, "data" : child}
                 children.append(child_node)
-        #sys.exit(0)
         return children
     
     def shuffle(self, puzz, x1, y1, x2, y2):
@@ -169,30 +134,19 @@ class Puzzle:
         if (x2 >= 0 and x2 < N) and (y2 >= 0 and y2 < N):
             temp_puz = []
             temp_puz = puzz[:] #Copy
-            # temp = temp_puz[x1 + y1 * self.size]
-            # temp_puz[x1 + y1 * self.size] = temp_puz[x2 + y2 * self.size]
-            # temp_puz[x2 + y2 * self.size] = temp
-            # return temp_puz
-            #swap
             index1 = x1 + y1 * N
             index2 = x2 + y2 * N
-            temp_puz[index1], temp_puz[index2] = temp_puz[index2], temp_puz[index1]
+            temp_puz[index1], temp_puz[index2] = temp_puz[index2], temp_puz[index1] #copy
             return temp_puz
         return None
     
     def find(self, puz, x):
         index = puz.index(x)
         N = self.n
+        return index % N, index // N
         if index >= 0:
             return index % N, index // N
         return None
-        for index in range(0, len(self.data)):
-            if puz[index] == x:
-                return  index % self.size, index // self.size
-        return None
-    def f(self, currNode, goal):
-        """ This is the cost function f(x) = g(x) + h(x) """
-        return currNode.level + currNode.h(goal)  #level or g
 
     def print_separator(self, currentNode):
         s_str = ''
@@ -220,73 +174,46 @@ class Puzzle:
         s_str += '\n' + s_bar
         print(s_str)
 
-    def solve_1(self):
-        #setattr(ListNode, "__lt__", lambda self, other: self.val <= other.val)
-        startNode = Node(None, self.n, self.start, 0, 0, self.heuristic)
-        startNode.fcost = self.f(startNode, self.goal)
-        goalNode = Node(None, self.n, self.goal, 0, 0, self.heuristic)
-        opened = []
-        closed = []
-        heappush(opened, startNode)
-        while opened:
-            process = heappop(opened)
-            if (process.data == goalNode.data):
-                self.print_path(process)
-                break
-            closed.append(process)
-            for node in process.generate_child():
-                node.fcost = self.f(node, goal=self.goal)
-                if node in closed:
-                    continue
-                if not node in opened:
-                    heappush(opened, node)
-                else:
-                    index = opened.index(node)
-                    currentNode = opened[index] #(x for x in opened if x == node)
-                    if node.level < currentNode.level:
-                        currentNode.level = node.level
-                        currentNode.fcost = node.fcost
-                        currentNode.parent = node.parent
-        print('Not possible to reach goal')
+    def display_solution(self, endNode):
+        print('---Solution---')
+        required_moves = endNode.length()
+        print('Complexity in time : ', (self.complexityInTime))
+        print('Complexity in size : ', self.complexityInSize)
+        print('Required moves : ' + str(required_moves))
+        self.print_path(endNode)
 
     def solve(self):
-        # print("Enter the start state matrix")
-        # self.start = self.accept()
-        # print("Enter the goal state matrix")
-        # self.goal = self.accept()
-
-        # self.start = [1, 2, 3,0, 4, 6,7, 5, 8]
-        # self.goal = [1, 2, 3,4, 5, 6,7, 8, 0]
+        #setattr(ListNode, "__lt__", lambda self, other: self.val <= other.val)
         if  self.start == self.goal: #break if we found the solution
             print('The Provided State is the Solution...')
             self.print_path(Node(None, self.n, self.start))
             return 
         """The actual algorithm"""
-        start = Node(None, self.n, self.start, 0, 0, self.heuristic)
-        start.fcost = self.f(start, goal=self.goal) #same as h cause g is zero at start
-        heappush(self.open_list, start) #add the start node to the open list
-        self.closed_list.add(str(start.data))
-        while self.open_list:
-            currentNode = heappop(self.open_list) #pop the first element from the open list queue
-            #self.print_separator(currentNode)
+        open_list = []
+        closed_list = set()
+        start = Node(None, self.start, 0, self.h(self.start, self.goal)) #same as f = h cause g is zero at start
+        heappush(open_list, start) #add the start node to the open list
+        #closed_list.add(str(start.data))
+        import time
+        start_time = time.time()
+        while open_list:
+            currentNode = heappop(open_list) #pop the first element from the open list queue
+            self.complexityInTime += 1
             if  currentNode.data == self.goal: #break if we found the solution
-                print('Solution')
-                self.print_path(currentNode)
+                print("--- %s seconds ---" % (time.time() - start_time))
+                #self.display_solution(currentNode)
                 return
-            for child in self.generate_child(currentNode):
-                # print('start', i.data)
-                # print('goal', self.goal)
-                g = currentNode.level
-                h = currentNode.h(self.goal)
+            for child in self.generate_child(currentNode.data):
+                g = currentNode.level + 1
+                h = self.h(currentNode.data, self.goal)
                 fcost = g + h
-                if (str(child["data"]) not in self.closed_list):
-                    child_node = Node(currentNode, self.n, child["data"], currentNode.level + 1, fcost, self.heuristic, child['dir'])
-                    heappush(self.open_list, child_node)
-            self.closed_list.add(str(currentNode.data)) #already explored mark it as visited by puting it inside close list
-            # sys.exit()
-            # del self.open_list[0]
-            # self.open_list.sort(key=lambda x: x.fcost, reverse=False)
+                if not (str(child["data"]) in closed_list):
+                    child_node = Node(currentNode,  child["data"], g, fcost, child['dir'])
+                    heappush(open_list, child_node)
+                    self.complexityInSize += 1
+            closed_list.add(str(currentNode.data)) #already explored mark it as visited by puting it inside close list
         print('Error : No path found !')
+   
     def print_path(self, root):
         if root == None:
             return
@@ -301,8 +228,15 @@ class PuzzleParser:
 
     def parsePuzzle(self, fileName):
         lines = []
-        with open(fileName) as f:
-            lines = f.readlines()
+        try:
+            with open(fileName) as f:
+                lines = f.readlines()
+        except IOError as e:
+            print(e)
+            sys.exit(1)
+        except:
+            print('Error loading provided file :-(')
+            sys.exit(1)
         count = 0
         size = -1
         data = []
@@ -342,54 +276,30 @@ class PuzzleParser:
         if (count != size):
             print('There is a mismatch between the specified size and the provided map size')
             sys.exit(0)
-        print('Parsing done successfully :-) ')
-        print('data', data)
         return size, data
     
-
-
     def computeGoalState(self):
         print('size ',self.size)
         m = self.size
         n = self.size
-
         arr = [[None]*n for _ in range(m)]
         k = 0; l = 0
-  
-        ''' k - starting row index 
-            m - ending row index 
-            l - starting column index 
-            n - ending column index 
-            i - iterator '''
-
         currNumber = 0
-        while (k < m and l < n) : 
-            
-            # Compute the first row from 
-            # the remaining rows  
+        while (k < m and l < n) :
             for i in range(l, n) : 
                 currNumber += 1
                 arr[k][i] = currNumber
             k += 1
-    
-            # Compute the last column from 
-            # the remaining columns  
             for i in range(k, m) : 
-                # print(a[i][n - 1], end = " ") 
                 currNumber += 1
                 arr[i][n - 1] = currNumber
             n -= 1
-            # Compute the last row from 
-            # the remaining rows  
             if ( k < m) : 
                 
                 for i in range(n - 1, (l - 1), -1) : 
-                    # print(a[m - 1][i], end = " ") 
                     currNumber += 1
                     arr[m - 1][i] = currNumber
                 m -= 1
-            # Compute the first column from 
-            # the remaining columns  
             if (l < n) : 
                 for i in range(m - 1, k - 1, -1) : 
                     currNumber += 1
@@ -398,9 +308,6 @@ class PuzzleParser:
         
         state = [j for sub in arr for j in sub]
         state[state.index(self.size * self.size)] = 0
-   #     state = [1, 2, 3, 4, 5, 6, 7, 8, 0]
-        print('\n target state ', state)
-        print(' => arr', arr)
         return state
 
 
@@ -416,15 +323,6 @@ class PuzzleParser:
     def get_inversion_count(self, arr):
         inv_count = 0
         N = self.size
-        # grid = arr.copy()
-        # grid.remove(0)
-        # for i in range(1, len(grid)):
-        #     for j in range(i - 1, 0, -1):
-        #         if (grid[j] <= grid[j + 1]):
-        #             break
-        #         grid[j + 1], grid[j] = grid[j], grid[j + 1]
-        #         inv_count += 1
-        # return inv_count
         for i in range(N * N - 1):
             for j in range(i + 1, N * N):
                 if arr[j] and arr[i] and arr[i] > arr[j]:
@@ -437,64 +335,33 @@ class PuzzleParser:
             for j in range(N - 1, -1, -1):
                 if (puzzle[i * N + j] == 0):
                     return N - i
-        print('What ??? N = ', N)
-        print('(3, 0)', puzzle[3 * N + 0])
         return -1
 
     def parity(self, puzzle):
         inv_count = self.get_inversion_count(puzzle)
         N = self.size
         if (N & 1):
-            print(f"inversion count: {inv_count}")
             return (inv_count & 1)
         else:
             pos = self.find_blank_position(puzzle)
-            print(f"inversion count: {inv_count} position from bottom : {pos}")
-            # return (inv_count + pos) & 1
             if (pos & 1):
                 return not (inv_count & 1)
             else:
                 return inv_count & 1
-    # def check_parity(self, puzzle):
 
         
     def solvable(self):
-        # y_puzzle = [12, 1, 10, 2,
-        # 7, 11, 4, 14,
-        # 5, 0, 9, 15,
-        # 8, 13, 6, 3]
-
-        y_1puzzle = [
-            6, 13, 7, 10,
-                    8, 9, 11, 0,
-                    15, 2, 12, 5,
-                    14, 3, 1, 4
-        ]
-        y_2puzzle = [
-             13, 2, 10, 3,
-                    1, 12, 8, 4,
-                    5, 0, 9, 6,
-                    15, 14, 11, 7
-        ]
-        n_puzzle = [
-            3, 9, 1, 15,
-            14, 11, 4, 6,
-                    13, 0, 10, 12,
-                    2, 7, 8, 5
-        ]
-        # self.size = 4
         puzzle = self.start_state
         startParity = self.parity(puzzle)
-        print('Start state is pair ? ' + 'Yes' if startParity else 'No')
+        print('Start is ',puzzle)
         puzzle = self.goal_state
         goalParity = self.parity(puzzle)
-        print('Goal state is pair ? ' + 'Yes' if goalParity else 'No')
         print('Goal is ',puzzle)
         return startParity and goalParity
 
 
 def main(fileName, heuristic):
-    puzzleParser = PuzzleParser(fileName)
+    puzzleParser = PuzzleParser(fileName)        
     if not puzzleParser.solvable():
         print('Sorry the puzzle provided is not solvable :-(')
         sys.exit(0)
@@ -513,5 +380,5 @@ if __name__ == "__main__":
     options = parser.parse_args()
     if options.fileName and options.heuristic >=  0:
         main(options.fileName, options.heuristic)
-else:
-    print ("Executed when imported")
+    else:
+        print("Wrong parameters :-( check you arguments")
